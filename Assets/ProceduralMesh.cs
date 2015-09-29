@@ -50,8 +50,10 @@ public class ProceduralMesh : MonoBehaviour {
     public float lakeShapeStrenght = 0.1f;
     public float lakeSize = 20.0f;
 
-    [NonSerialized]
+    [HideInInspector]
     public bool[] arrayValidData;
+
+    [SerializeField]
     float[] heightModifierValueData;
 
     public Vector3 getIndexPosition(int i, int j)
@@ -93,6 +95,68 @@ public class ProceduralMesh : MonoBehaviour {
         }
     }
     
+
+    public bool getHeightForPosition(float x, float y, out float heightFloat)
+    {
+        float posX = transform.position.x + x;
+        float posY = transform.position.z + y;
+
+        posX += (xSize * 0.5f);
+        posY += (ySize*0.5f);
+
+        float tileSize = xSize / PointsNum1D;
+        posX /= tileSize;
+        posY /= tileSize;
+
+        int xIndex = Mathf.FloorToInt(posX);
+        int yIndex = Mathf.FloorToInt(posY);
+
+        float normalisedX = posX - xIndex;
+        float normalisedY = posY - yIndex;
+        float bottomLeft = 0.0f;
+        float bottomRight = 0.0f;
+        float topLeft = 0.0f;
+        float topRight = 0.0f;
+
+        
+        if (heightMap==null)
+        {
+            Debug.LogError("Height map is null, regenerate the terrain");
+            heightFloat = 0.0f;
+            return false;
+        }
+        bool gotHeightMap = false;
+        if (xIndex >= 0 && xIndex < PointsNum1D && yIndex >= 0 && yIndex < PointsNum1D)
+        {
+            bottomLeft  = transform.position.y + heightMap[xIndex, yIndex];
+            gotHeightMap = true;
+        }
+                
+        if (xIndex >= 0 && xIndex < PointsNum1D && yIndex >= 0 && yIndex < PointsNum1D)
+        {
+            bottomRight = transform.position.y + heightMap[xIndex+1, yIndex];
+        }
+                
+        if (xIndex >= 0 && xIndex < PointsNum1D && yIndex >= 0 && yIndex < PointsNum1D)
+        {
+            topRight = transform.position.y + heightMap[xIndex+1, yIndex+1];
+        }
+        
+        if (xIndex >= 0 && xIndex < PointsNum1D && yIndex >= 0 && yIndex < PointsNum1D)
+        {
+            topLeft = transform.position.y + heightMap[xIndex, yIndex+1];
+        }
+
+        float r1 = (1-normalisedX) * bottomLeft + (normalisedX) * bottomRight;
+        float r2 = (1-normalisedX) * topLeft + (normalisedX) * topRight;
+
+        heightFloat = (1.0f-normalisedY) * r1 + normalisedY * r2;
+
+
+        return gotHeightMap;
+
+    }
+
     float getTerrainHeightMod(int x, int y)
     {
         return heightModifierValueData[x + y * PointsNum1D];
