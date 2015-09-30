@@ -23,12 +23,12 @@ public class BottomProceduralMesh : MonoBehaviour {
         
         int numTriangles = copyMesh.triangles.GetLength(0);
         int[] triangles = new int[numTriangles];
-        
+        copyMesh.triangles.CopyTo(triangles, 0);
         for (int i = 0; i < numTriangles; i+=3)
         {
-            triangles[i] = copyMesh.triangles[i + 2];
-            triangles[i+1] = copyMesh.triangles[i + 1];
-            triangles[i+2] = copyMesh.triangles[i ];
+            int temp = triangles[i];
+            triangles[i] = triangles[i + 2];
+            triangles[i+2] = temp;
 
         }
         for (int smoothIter = 0; smoothIter < smoothintIterations; smoothIter++)

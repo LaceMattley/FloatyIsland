@@ -5,6 +5,7 @@ using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
 using System;
+using UnityEditor;
 
 public class SVert
 {
@@ -20,6 +21,8 @@ public class SVert
         distanceRatio = 0.0f;
     }
 }
+
+[ExecuteInEditMode]
 public class ProceduralMesh : MonoBehaviour {
 
     public bool randomSeed = false;
@@ -50,12 +53,12 @@ public class ProceduralMesh : MonoBehaviour {
     public float lakeShapeStrenght = 0.1f;
     public float lakeSize = 20.0f;
 
-    [HideInInspector]
+    [NonSerialized]
     public bool[] arrayValidData;
-
-    [SerializeField]
     float[] heightModifierValueData;
 
+    bool listFinished = false;
+    String generationString ="";
     public Vector3 getIndexPosition(int i, int j)
     {
          float zPos = ((float)j / (PointsNum1D - 1) - .5f) * xSize;
@@ -63,24 +66,22 @@ public class ProceduralMesh : MonoBehaviour {
         return this.transform.position + new Vector3(xPos, heightMap[i, j], zPos);
     }
     public float[,] heightMap;
-	// Use this for initialization
-	void Start () {
-	
-	}
-	
+
+    void OnDrawGizmos()
+    {
+
+        Handles.color = Color.blue;
+        Handles.Label(this.transform.position, generationString);
+    }
+
     void setTerrain(int x, int y, bool _isTerrain)
     {
         arrayValidData[x + y*PointsNum1D] = _isTerrain;
-#if USE_TEX
-        shapeTexture.SetPixel(x, y, _isTerrain ? Color.red : Color.blue);
-#endif
     }
     void setTerrainHeightMod(int x, int y, float _heightMod)
     {
         heightModifierValueData[x + y * PointsNum1D] = _heightMod;
-#if USE_TEX
-        shapeTexture.SetPixel(x, y, _isTerrain ? Color.red : Color.blue);
-#endif
+
     }
 
     bool getTerrainPresence(int x, int y)
@@ -95,74 +96,32 @@ public class ProceduralMesh : MonoBehaviour {
         }
     }
     
-
-    public bool getHeightForPosition(float x, float y, out float heightFloat)
-    {
-        float posX = transform.position.x + x;
-        float posY = transform.position.z + y;
-
-        posX += (xSize * 0.5f);
-        posY += (ySize*0.5f);
-
-        float tileSize = xSize / PointsNum1D;
-        posX /= tileSize;
-        posY /= tileSize;
-
-        int xIndex = Mathf.FloorToInt(posX);
-        int yIndex = Mathf.FloorToInt(posY);
-
-        float normalisedX = posX - xIndex;
-        float normalisedY = posY - yIndex;
-        float bottomLeft = 0.0f;
-        float bottomRight = 0.0f;
-        float topLeft = 0.0f;
-        float topRight = 0.0f;
-
-        
-        if (heightMap==null)
-        {
-            Debug.LogError("Height map is null, regenerate the terrain");
-            heightFloat = 0.0f;
-            return false;
-        }
-        bool gotHeightMap = false;
-        if (xIndex >= 0 && xIndex < PointsNum1D && yIndex >= 0 && yIndex < PointsNum1D)
-        {
-            bottomLeft  = transform.position.y + heightMap[xIndex, yIndex];
-            gotHeightMap = true;
-        }
-                
-        if (xIndex >= 0 && xIndex < PointsNum1D && yIndex >= 0 && yIndex < PointsNum1D)
-        {
-            bottomRight = transform.position.y + heightMap[xIndex+1, yIndex];
-        }
-                
-        if (xIndex >= 0 && xIndex < PointsNum1D && yIndex >= 0 && yIndex < PointsNum1D)
-        {
-            topRight = transform.position.y + heightMap[xIndex+1, yIndex+1];
-        }
-        
-        if (xIndex >= 0 && xIndex < PointsNum1D && yIndex >= 0 && yIndex < PointsNum1D)
-        {
-            topLeft = transform.position.y + heightMap[xIndex, yIndex+1];
-        }
-
-        float r1 = (1-normalisedX) * bottomLeft + (normalisedX) * bottomRight;
-        float r2 = (1-normalisedX) * topLeft + (normalisedX) * topRight;
-
-        heightFloat = (1.0f-normalisedY) * r1 + normalisedY * r2;
-
-
-        return gotHeightMap;
-
-    }
-
     float getTerrainHeightMod(int x, int y)
     {
         return heightModifierValueData[x + y * PointsNum1D];
     }
+
+    void Start()
+    {
+        
+    }
+    public Vector3 getPositionForIndex(int x, int y)
+    {
+        float zPos = ((float)y / (PointsNum1D - 1) - .5f) * xSize;
+        float yPos = heightMap[x,y];
+        float xPos = ((float)x / (PointsNum1D - 1) - .5f) * ySize;
+        return new Vector3(xPos, yPos, zPos);
+    }
     [ContextMenu("Generate")]
-    void GenerateMesh()
+    void StartGeneration()
+    {
+        StopCoroutine(GenerateMesh());
+        IEnumerator coroutine = GenerateMesh();
+        generationString = "Started Generating"; 
+        EditorApplication.update += delegate { coroutine.MoveNext(); };
+    }
+
+    IEnumerator GenerateMesh()
     {
         arrayValidData = new bool[PointsNum1D* PointsNum1D];
         heightModifierValueData = new float[PointsNum1D * PointsNum1D];
@@ -189,6 +148,8 @@ public class ProceduralMesh : MonoBehaviour {
         float startVal = -0.5f * Mathf.PI;
         int previousY = halfPointsNum1D + Mathf.FloorToInt(radius * Mathf.Sin(startVal));
         
+        generationString = "Generating island";
+
         for (float theta = startVal; theta < startVal+Mathf.PI*2.0f; theta += 0.0001f)
         {
             float heightVal = Mathf.PerlinNoise(((theta - startVal) * islandShapeStrength), 0.0f);
@@ -205,15 +166,12 @@ public class ProceduralMesh : MonoBehaviour {
         if (floodFill)
         {
             FloodFillArea<bool>(arrayValidData, halfPointsNum1D, halfPointsNum1D, true);
-#if USE_TEX
-            //shapeTexture.FloodFillArea(halfPointsNum1D, halfPointsNum1D, Color.blue);
-#endif
-        }
 
-#if USE_TEX
-        shapeTexture.Apply();
-#endif
-        int smoothingIters =3;
+        }
+        yield return new WaitForSeconds(.1f);
+
+        generationString = "Smoothing";
+        int smoothingIters =3;               
         for (int iter = 0; iter < smoothingIters; iter++)
         {
             for (int x = 1; x < PointsNum1D - 1; x++)
@@ -226,11 +184,7 @@ public class ProceduralMesh : MonoBehaviour {
 
                         for (int j = z - 1; j < z + 2; j++)
                         {
-#if USE_TEX
-                            cumulativeVal += shapeTexture.GetPixel(i, j).g;
-#else
                             cumulativeVal += heightModifierValueData[i+j*PointsNum1D];
-#endif
                         }
                     }
                     if (cumulativeVal > 0.0f)
@@ -240,51 +194,68 @@ public class ProceduralMesh : MonoBehaviour {
                 }
             }
         }
-        #if USE_TEX
-        shapeTexture.Apply();
-#endif
+        listFinished = false;
+        
+        generationString = "Prepping the list";
+        GenerateList(false);
 
-        GenerateList();
-
+                        
+        generationString = "Gathering vertex data";
+        int vertCount = 3 * 360;
+        Vector3[] verticesArray = new Vector3[sVertList.Count];
+        Vector2[] uvs = new Vector2[sVertList.Count];
+        int?[,] arrayIndices = new int?[PointsNum1D, PointsNum1D];
+        for (int i = 0; i < sVertList.Count;i++ )
+        {
+            arrayIndices[sVertList[i].xIndex, sVertList[i].yIndex] = sVertList[i].arrayIndex;
+            verticesArray[i] = sVertList[i].position;
+            uvs[i] = new Vector2((float)sVertList[i].xIndex / (PointsNum1D - 1), (float)sVertList[i].yIndex / (PointsNum1D - 1));
+            if ((i % vertCount) == 0)
+            {
+                yield return new WaitForSeconds(0.0f); ;
+            }
+        }
+        
         List<int> triangleArray = new List<int>();
+
+        int num = 0;
         foreach (SVert vert in sVertList)
         {
             int indexX = vert.xIndex;
             int indexY = vert.yIndex;
 
-            SVert upVert = findVert(indexX, indexY + 1, sVertList);
-            SVert RightVert = findVert(indexX + 1, indexY, sVertList);
+            int? upVert = arrayIndices[indexX, indexY + 1];
+            int? RightVert = arrayIndices[indexX + 1, indexY];
             //time to add a triangle
-            if (upVert!=null && RightVert!= null)
+            if (upVert.HasValue && RightVert.HasValue)
             {
                 triangleArray.Add(vert.arrayIndex);
-                triangleArray.Add(upVert.arrayIndex);
-                triangleArray.Add(RightVert.arrayIndex);
+                triangleArray.Add(upVert.Value);
+                triangleArray.Add(RightVert.Value);
             }
 
 
-            SVert leftVert = findVert(indexX - 1, indexY, sVertList);
-            SVert downVert = findVert(indexX, indexY - 1, sVertList);
-            if (leftVert != null && downVert != null)
+            int? leftVert = arrayIndices[indexX - 1, indexY];
+            int? downVert = arrayIndices[indexX, indexY - 1];
+            if (leftVert.HasValue && downVert.HasValue)
             {
-                triangleArray.Add(leftVert.arrayIndex);
+                triangleArray.Add(leftVert.Value);
                 triangleArray.Add(vert.arrayIndex);
-                triangleArray.Add(downVert.arrayIndex);
+                triangleArray.Add(downVert.Value);
             }
+            num++;
 
+            if ((triangleArray.Count % vertCount) == 0)
+            {
+                generationString = "Getting all the triangles." + num + "/" + sVertList.Count;
+                yield return new WaitForSeconds(0.0f);
+            }
         }
-        
-        Vector3[] verticesArray = new Vector3[sVertList.Count];
-        Vector2[] uvs = new Vector2[sVertList.Count];
-        for (int i = 0; i < sVertList.Count;i++ )
-        {
-            verticesArray[i] = sVertList[i].position;
-            uvs[i] = new Vector2((float)sVertList[i].xIndex / (PointsNum1D - 1), (float)sVertList[i].yIndex / (PointsNum1D - 1));       
-        }
-        
+
         int nbFaces = (PointsNum1D - 1) * (PointsNum1D - 1);
 
        
+        generationString = "Copying data to mesh";
         int[] triangles = new int[triangleArray.Count];
         triangleArray.CopyTo(triangles);
 
@@ -293,6 +264,7 @@ public class ProceduralMesh : MonoBehaviour {
         mesh.vertices = verticesArray;
         mesh.triangles = triangles;
         mesh.uv = uvs;
+        generationString = "Calculating stuff";
         mesh.RecalculateBounds();
         mesh.RecalculateNormals();
         mesh.Optimize();
@@ -300,13 +272,21 @@ public class ProceduralMesh : MonoBehaviour {
         MeshFilter filter = GetComponent<MeshFilter>();
         if (filter)
         {
+            if (GetComponent<MeshCollider>() == null)
+            {
+                gameObject.AddComponent<MeshCollider>();
+            }
+            GetComponent<MeshCollider>().sharedMesh = mesh;
             filter.sharedMesh = mesh;            
         }
+        
 
+        generationString = "";
+        yield return new WaitForSeconds(.1f);
     }
 
 
-    private void GenerateList()
+    void GenerateList(bool fillMesh)
     {
         int halfPointsNum1D = PointsNum1D / 2;
 
@@ -330,8 +310,9 @@ public class ProceduralMesh : MonoBehaviour {
                 {                   
                     heightMap[x,z] = 0.0f;                    
                 }
-            }
+            }            
         }
+        
         if (withModifiers)
         {
             foreach (HeightMapFeature feature in GetComponents<HeightMapFeature>())
@@ -377,28 +358,32 @@ public class ProceduralMesh : MonoBehaviour {
                 }
             }
         }
+
+
         MeshFilter filter = GetComponent<MeshFilter>();
-        if (filter)
+        if (filter && fillMesh)
         {
-            Mesh mesh = filter.sharedMesh;
             Vector3[] vecs = new Vector3[sVertList.Count];
             for (int i = 0; i < sVertList.Count; i++)
             {
-                vecs[i] = sVertList[i].position;            
+                vecs[i] = sVertList[i].position;
             }
+            Mesh mesh = filter.sharedMesh;
             mesh.vertices = vecs;
             mesh.RecalculateBounds();
             mesh.RecalculateNormals();
             mesh.Optimize();
             filter.sharedMesh = mesh;
+            GetComponent<MeshCollider>().sharedMesh = mesh;
         }
+        listFinished = true;
     }
 
     [ContextMenu("RegenerateTerrain")]
     void regenerateTerrain()
     {
 
-        GenerateList();
+        GenerateList(true);
     }
     [ContextMenu("Generate All")]
     void generateAll()
@@ -414,6 +399,7 @@ public class ProceduralMesh : MonoBehaviour {
         {
             if (bottomPlane)
             {
+
                 bottomPlane.GetComponent<BottomProceduralMesh>().setMesh(filter.sharedMesh, totalPointCount,sVertList);
             }
         }
@@ -451,7 +437,10 @@ public class ProceduralMesh : MonoBehaviour {
         public Point(int aX, int aY) : this((short)aX, (short)aY) { }
     }
 
+    void Awake()
+    {
 
+    }
     public void FloodFillArea<T>(T[] values, int aX, int aY, T fillVal) where T : System.IComparable<T>
     {
         int w = PointsNum1D;
