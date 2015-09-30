@@ -10,9 +10,17 @@ public class RoadMesh : MonoBehaviour {
     public float tileSize = 2.0f;
     public int width = 10;
     public int height = 10;
+
+
+    public float slamDownTime = 1.0f;
+
+    public float slamDownSpeed = 0.0f;
+
+    public float minY = 0.1f;
 	// Use this for initialization
 	void Start () {
-	
+        proceduralMesh = GameObject.FindObjectOfType<ProceduralMesh>();
+        spawnMesh();
 	}
 
     [ContextMenu("Gen")]
@@ -32,7 +40,7 @@ public class RoadMesh : MonoBehaviour {
                 Vector3 adjustedPos = this.transform.position + pos;
                 float heightVal = 0.0f;
 
-                //if (proceduralMesh.getHeightForPosition(adjustedPos.x, adjustedPos.z, out heightVal))
+                if (proceduralMesh.getHeightForPosition(adjustedPos.x, adjustedPos.z, out heightVal))
                 {
                     pos.y =  heightVal;
                 }
@@ -63,6 +71,14 @@ public class RoadMesh : MonoBehaviour {
 
 	// Update is called once per frame
 	void Update () {
+        if (transform.position.y > 0.0f)
+        {
+            slamDownSpeed += slamDownTime * Time.deltaTime;
+            float timeVal = slamDownSpeed * Time.deltaTime;
+            float newYVal = transform.position.y-timeVal;
+            newYVal = Mathf.Max(newYVal,minY);
+            transform.position = new Vector3(transform.position.x,newYVal,transform.position.z);
+        }
         /*
         MeshFilter filter = GetComponent<MeshFilter>();
         Mesh newMesh = filter.sharedMesh;
@@ -77,7 +93,7 @@ public class RoadMesh : MonoBehaviour {
             }
         }
          * */
-        spawnMesh();
+        //spawnMesh();
         //filter.sharedMesh = newMesh;
 	}
 }

@@ -29,7 +29,9 @@ public class ProceduralMesh : MonoBehaviour {
     public bool withModifiers = false;
 
     public float xSize = 100.0f;
-    public float ySize = 100.0f;    
+    public float ySize = 100.0f;
+
+    public float distanceBetweenPoints = 1.0f;
 
     public float islandShapeStrength = 2;
     List<SVert> sVertList = new List<SVert>();  
@@ -59,6 +61,69 @@ public class ProceduralMesh : MonoBehaviour {
 
     bool listFinished = false;
     String generationString ="";
+
+
+    public bool getHeightForPosition(float x, float y, out float heightFloat)
+    {
+        float posX = transform.position.x + x;
+        float posY = transform.position.z + y;
+
+        posX += (xSize * 0.5f);
+        posY += (ySize * 0.5f);
+
+        float tileSize = xSize / PointsNum1D;
+        posX /= tileSize;
+        posY /= tileSize;
+
+        int xIndex = Mathf.FloorToInt(posX);
+        int yIndex = Mathf.FloorToInt(posY);
+
+        float diff = ((float)1 / (PointsNum1D - 1) - .5f) * xSize;
+        diff -= ((float)2 / (PointsNum1D - 1) - .5f) * xSize;
+        diff = 1.0f;
+        float normalisedX = (posX - xIndex)/diff;
+        float normalisedY = (posY - yIndex)/diff;
+        float bottomLeft = 0.0f;
+        float bottomRight = 0.0f;
+        float topLeft = 0.0f;
+        float topRight = 0.0f;
+
+        if (heightMap == null)
+        {
+            //Debug.LogError("Height map is null, regenerate the terrain");
+            heightFloat = 0.0f;
+            return false;
+        }
+        bool gotHeightMap = false;
+        if (xIndex >= 0 && xIndex < PointsNum1D && yIndex >= 0 && yIndex < PointsNum1D)
+        {
+            bottomLeft = transform.position.y + heightMap[xIndex, yIndex];
+            gotHeightMap = true;
+        }
+
+        if (xIndex >= 0 && xIndex < PointsNum1D && yIndex >= 0 && yIndex < PointsNum1D)
+        {
+            bottomRight = transform.position.y + heightMap[xIndex + 1, yIndex];
+        }
+
+        if (xIndex >= 0 && xIndex < PointsNum1D && yIndex >= 0 && yIndex < PointsNum1D)
+        {
+            topRight = transform.position.y + heightMap[xIndex + 1, yIndex + 1];
+        }
+
+        if (xIndex >= 0 && xIndex < PointsNum1D && yIndex >= 0 && yIndex < PointsNum1D)
+        {
+            topLeft = transform.position.y + heightMap[xIndex, yIndex + 1];
+        }
+
+        float r1 = (1 - normalisedX) * bottomLeft + (normalisedX) * bottomRight;
+        float r2 = (1 - normalisedX) * topLeft + (normalisedX) * topRight;
+
+        heightFloat = (1.0f - normalisedY) * r1 + normalisedY * r2;
+
+
+        return gotHeightMap;
+    }
     public Vector3 getIndexPosition(int i, int j)
     {
          float zPos = ((float)j / (PointsNum1D - 1) - .5f) * xSize;
@@ -103,7 +168,10 @@ public class ProceduralMesh : MonoBehaviour {
 
     void Start()
     {
-        
+        if (heightMap == null)
+        {
+            StartGeneration();
+        }
     }
     public Vector3 getPositionForIndex(int x, int y)
     {
@@ -317,18 +385,21 @@ public class ProceduralMesh : MonoBehaviour {
         {
             foreach (HeightMapFeature feature in GetComponents<HeightMapFeature>())
             {
-                feature.generateOnHeightMap(ref heightMap,true);
+                if (feature.isEnabled)
+                {
+                    feature.generateOnHeightMap(ref heightMap, true);
+                }
             }
         }
         for (int z = 0; z < PointsNum1D; z++)
         {
             // [ -xSize / 2, xSize / 2 ]
-            float zPos = ((float)z / (PointsNum1D - 1) - .5f) * xSize;
+            float zPos = (z-PointsNum1D*0.5f) * distanceBetweenPoints;
             for (int x = 0; x < PointsNum1D; x++)
             {
                 if (getTerrainPresence(x, z))
                 {
-                    float xPos = ((float)x / (PointsNum1D - 1) - .5f) * ySize;
+                    float xPos = (x-PointsNum1D*0.5f) * distanceBetweenPoints ;
                     Vector3 newPos = new Vector3(xPos, heightMap[x, z], zPos);
                     float closenessToEdgeX = Mathf.Abs(((float)x - (float)halfPointsNum1D) / (float)halfPointsNum1D);
                     float closenessToEdgeZ = Mathf.Abs(((float)z - (float)halfPointsNum1D) / (float)halfPointsNum1D);

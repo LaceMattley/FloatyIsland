@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 public abstract class HeightMapFeature : MonoBehaviour {
 
+    public bool isEnabled = true;
     public abstract void generateOnHeightMap(ref float[,] _heightmap, bool _alterHeightmap);
 
     protected int HeightMapDimension { get { return GetComponent<ProceduralMesh>().PointsNum1D; } }
