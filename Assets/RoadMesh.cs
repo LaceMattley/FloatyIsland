@@ -32,7 +32,7 @@ public class RoadMesh : MonoBehaviour {
                 Vector3 adjustedPos = this.transform.position + pos;
                 float heightVal = 0.0f;
 
-                if (proceduralMesh.getHeightForPosition(adjustedPos.x, adjustedPos.z, out heightVal))
+                //if (proceduralMesh.getHeightForPosition(adjustedPos.x, adjustedPos.z, out heightVal))
                 {
                     pos.y =  heightVal;
                 }
