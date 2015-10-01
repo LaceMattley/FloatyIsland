@@ -5,18 +5,11 @@ using System.Linq;
 
 public class RiverHMF : HeightMapFeature 
 {
-	Vector3 direction;
-	ProceduralMesh proceduralMesh;
-	
-	List<Point> pointList = new List<Point>();
-	
-	class Point
-	{
-		public int x;
-		public int y;
-		public bool deadPoint;
-		public Point nextPoint;
-	}
+	public bool useLowestNei = true;
+	public float velocityMax = 10.0f;
+	public float heightLossMul = 0.075f;
+	public float neighbourLossMul = 1/3.25f;
+	public int 	 numRivers = 1;
 
 	struct Vec2Int
 	{
@@ -42,22 +35,22 @@ public class RiverHMF : HeightMapFeature
 
 	public void OnDrawGizmosSelected ()
 	{
-		Gizmos.color = Color.white;
-		ProceduralMesh prodMesh = GetComponent<ProceduralMesh>();
-		if (pointList.Count > 0)
-		{
-			
-			Vector3 firstLine = prodMesh.getIndexPosition(pointList[0].x, pointList[0].y);
-			pointList.ForEach( f => Gizmos.DrawSphere(prodMesh.getIndexPosition(f.x, f.y),1.0f));
-			Point point = pointList[0];
-			while (point!=null)            
-			{
-				Vector3 pointPosition = prodMesh.getIndexPosition(point.x, point.y);
-				Gizmos.DrawLine(firstLine, pointPosition);
-				firstLine = pointPosition;
-				point = point.nextPoint;
-			}
-		}
+//		Gizmos.color = Color.white;
+//		ProceduralMesh prodMesh = GetComponent<ProceduralMesh>();
+//		if (pointList.Count > 0)
+//		{
+//			
+//			Vector3 firstLine = prodMesh.getIndexPosition(pointList[0].x, pointList[0].y);
+//			pointList.ForEach( f => Gizmos.DrawSphere(prodMesh.getIndexPosition(f.x, f.y),1.0f));
+//			Point point = pointList[0];
+//			while (point!=null)            
+//			{
+//				Vector3 pointPosition = prodMesh.getIndexPosition(point.x, point.y);
+//				Gizmos.DrawLine(firstLine, pointPosition);
+//				firstLine = pointPosition;
+//				point = point.nextPoint;
+//			}
+//		}
 	}
 	[ContextMenu("Generate")]
 	public void Generate()
@@ -69,9 +62,8 @@ public class RiverHMF : HeightMapFeature
 	public override void generateOnHeightMap(ref float[,] _heightmap, bool _alterHeightmap)
 	{
 		int width = GetComponent<ProceduralMesh>().PointsNum1D;
-		pointList.Clear();
 		float cumulativeHeight = 0;
-		int numStarts = 3;
+		int numStarts = numRivers;
 		float[] highPoints = new float[numStarts];
 		Vec2Int[] highPointIndices = new Vec2Int[numStarts];
 		float highPt = float.MinValue;
@@ -155,10 +147,15 @@ public class RiverHMF : HeightMapFeature
 					if (nei [m].y >= width || nei [m].y < 0)
 						continue;
 					float height = _heightmap [nei [m].x, nei [m].y];
-					if ((height < lowHei)
+					if ((height < lowHei || height - lowHei < velocity)
 						&& !visited.Any (v => v == nei [m])) {
 						lowHeis.Add(height);
 						lowIndices.Add(nei [m]);
+						//velocity *= 0.75f; 
+					}
+					else if ( !visited.Any (v => v == nei [m]) )
+					{
+						Debug.LogFormat("dh: {0}", height - lowHei);
 					}
 				}
 
@@ -167,6 +164,8 @@ public class RiverHMF : HeightMapFeature
 					break;
 
 				int idx = Random.Range(0,lowHeis.Count());
+				if(useLowestNei)
+					idx = lowHeis.IndexOf( lowHeis.Min() );
 				lowIdxs = lowIndices[idx];
 				lowHei = lowHeis[idx];
 
@@ -190,15 +189,17 @@ public class RiverHMF : HeightMapFeature
 				 * VFX
 				*/
 				velocity += lastHeight - _heightmap [k, L];
+				velocity = Mathf.Min(velocityMax, velocity);
 				lastHeight = _heightmap [k, L];
 				if (velocity < 0.0f)
 					Debug.Assert (velocity > 0.0f);
-				float heightLoss = 0.1f * velocity;
+				float heightLoss = heightLossMul * velocity;
 				_heightmap [k, L] -= heightLoss;
 				// Lower the neighbours too
 				for (int m = 0; m < 8; ++m) {
-					_heightmap [nei[m].x, nei[m].y] -= heightLoss / 3.0f;
+					_heightmap [nei[m].x, nei[m].y] -= heightLoss * neighbourLossMul;
 				}
+				Debug.LogFormat("velocity: {0}", velocity);
 			}
 		}
 //
