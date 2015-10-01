@@ -149,7 +149,7 @@ public class ProceduralMesh : MonoBehaviour {
 
     }
 
-    bool getTerrainPresence(int x, int y)
+    public bool getTerrainPresence(int x, int y)
     {
         try
         {
