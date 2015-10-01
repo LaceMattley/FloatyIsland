@@ -71,21 +71,42 @@ public class RiverHMF : HeightMapFeature
 		int width = GetComponent<ProceduralMesh>().PointsNum1D;
 		pointList.Clear();
 		float cumulativeHeight = 0;
-		int numStarts = 4;
+		int numStarts = 3;
 		float[] highPoints = new float[numStarts];
 		Vec2Int[] highPointIndices = new Vec2Int[numStarts];
 		float highPt = float.MinValue;
 		Vec2Int highPtIdx = new Vec2Int();
 		float ceil = float.MaxValue;
 		for (int start = 0; start < numStarts; ++start) {
+			bool foundStart = false;
 			for (int i = 0; i < width; i++) {
 				for (int j = 0; j < width; j++) {
 					float height = _heightmap [i, j];
 					if (height > highPt && height < ceil) {
 					//if (height > 0.4f && Random.Range(0,100) > 80) {
+						if (!GetComponent<ProceduralMesh> ().getTerrainPresence (i, j))
+							continue;
+						// Check how close this is to the other start points
+						if (start != 0)
+						{
+							bool tooClose = false;
+							Vector2 newV = new Vector2((float)i, (float)j);
+							for(int prv = start-1; prv >= 0; prv--)
+							{
+								Vector2 lastV = new Vector2((float)highPointIndices[prv].x, (float)highPointIndices[prv].y);
+								if(Mathf.Abs(Vector2.Distance(lastV,newV)) < 40.0f)
+								{
+									tooClose = true; 
+									break;
+								}
+							}
+							if(tooClose)
+								continue;
+						}
 						highPt = height;
 						highPtIdx.x = i;
 						highPtIdx.y = j;
+						foundStart = true;
 					}
 				}
 			}
@@ -126,18 +147,29 @@ public class RiverHMF : HeightMapFeature
 				lowIdxs.y = -1;
 				float lowHei = lastHeight;
 				int lowIdx = -1;
+				List<float> lowHeis = new List<float>(); 
+				List<Vec2Int> lowIndices = new List<Vec2Int>();
 				for (int m = 0; m < 8; ++m) {
 					if (nei [m].x >= width || nei [m].x < 0)
 						continue;
 					if (nei [m].y >= width || nei [m].y < 0)
 						continue;
 					float height = _heightmap [nei [m].x, nei [m].y];
-					if ((height < lowHei || (height - lastHeight < velocity))
+					if ((height < lowHei)
 						&& !visited.Any (v => v == nei [m])) {
-						lowHei = height;
-						lowIdxs = nei [m];
+						lowHeis.Add(height);
+						lowIndices.Add(nei [m]);
 					}
 				}
+
+				// TODO: needs to be able to get over small 
+				if(lowHeis.Count() == 0)
+					break;
+
+				int idx = Random.Range(0,lowHeis.Count());
+				lowIdxs = lowIndices[idx];
+				lowHei = lowHeis[idx];
+
 				if (!GetComponent<ProceduralMesh> ().getTerrainPresence (lowIdxs.x, lowIdxs.y))
 					break;
 
@@ -161,7 +193,12 @@ public class RiverHMF : HeightMapFeature
 				lastHeight = _heightmap [k, L];
 				if (velocity < 0.0f)
 					Debug.Assert (velocity > 0.0f);
-				_heightmap [k, L] -= 0.1f * velocity;
+				float heightLoss = 0.1f * velocity;
+				_heightmap [k, L] -= heightLoss;
+				// Lower the neighbours too
+				for (int m = 0; m < 8; ++m) {
+					_heightmap [nei[m].x, nei[m].y] -= heightLoss / 3.0f;
+				}
 			}
 		}
 //
