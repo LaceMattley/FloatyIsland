@@ -62,7 +62,7 @@ public class ProceduralMesh : MonoBehaviour {
     bool listFinished = false;
     String generationString ="";
 
-
+    
     public bool getHeightForPosition(float x, float y, out float heightFloat)
     {
         float posX = transform.position.x + x;

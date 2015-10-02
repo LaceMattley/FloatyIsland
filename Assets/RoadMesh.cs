@@ -46,7 +46,7 @@ public class RoadMesh : MonoBehaviour {
                 }
                 
                 verticeList.Add(pos);
-                uvList.Add(new Vector2(x/width, y/height));
+                uvList.Add(new Vector2((float)x/width, (float)y/height));
                 //Skip if a new square on the plane hasn't been formed
                 if (x == 0 || y == 0)
                     continue;

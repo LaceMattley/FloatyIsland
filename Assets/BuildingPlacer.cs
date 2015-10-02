@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 public class BuildingPlacer : MonoBehaviour {
 
@@ -7,6 +8,10 @@ public class BuildingPlacer : MonoBehaviour {
     public float granularity = 2.0f;
     public float spawnHeight = 2.0f;
     Vector3? lastPosition;
+    public List<Vector3> baseOffsetList = new List<Vector3>();
+    public bool oddWidth = false;
+    public bool oddHeight = false;
+
 	// Use this for initialization
 	void Start () {
 	
@@ -14,7 +19,7 @@ public class BuildingPlacer : MonoBehaviour {
 	
 	// Update is called once per frame
 	void Update () {
-	    if (Input.GetButton("Fire1")) 
+	    if (Input.GetButtonDown("Fire1")) 
         { 
             Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
             RaycastHit hit;
@@ -24,48 +29,34 @@ public class BuildingPlacer : MonoBehaviour {
                 float xPos = Mathf.Round(hit.point.x/granularity)*granularity;
                 float zPos = Mathf.Round(hit.point.z/granularity)*granularity;
                 Vector3 pos = new Vector3(xPos, spawnHeight, zPos);
-
-                if (!lastPosition.HasValue)
+                pos += new Vector3(oddWidth ? -0.5f : 0.0f, 0.0f, oddHeight ? 0.5f : 0.0f);
+               
+                bool canSpawn = true;
+                foreach (RoadMesh roadMesh in GameObject.FindObjectsOfType<RoadMesh>())
                 {
-                    pos = TrySpawnAtPosition(pos);
-                }
-                else
-                {
-                    float xDiff = Mathf.Abs(pos.x - lastPosition.Value.x);
-                    float yDiff = Mathf.Abs(pos.z - lastPosition.Value.z);
-
-
-                    if (xDiff < Mathf.Epsilon)
+                    foreach (Vector3 offsetVec in baseOffsetList)
                     {
-                        float increments = granularity;
-                        float start = lastPosition.Value.z;
-                        float end = zPos;
-                        if (start > end)
+                        Vector3 offsetPos = pos + offsetVec;                        
+                        Vector3 distance = roadMesh.transform.position - offsetPos;
+                        if (distance.sqrMagnitude < 1.0f)
                         {
-                            start = zPos;
-                            end = lastPosition.Value.z;
-                        }
-                        for (float i = start; i <= end; i += increments)
-                        {
-                            TrySpawnAtPosition(new Vector3(xPos, spawnHeight, i));
-                        }
-                    }
-                    if (yDiff < Mathf.Epsilon)
-                    {
-                        float increments = granularity;
-                        float start = lastPosition.Value.x;
-                        float end = xPos;
-                        if (start > end)
-                        {
-                            start = xPos;
-                            end = lastPosition.Value.x;
-                        }
-                        for (float i = start; i <= end; i += increments)
-                        {
-                            TrySpawnAtPosition(new Vector3(i, spawnHeight, zPos));
+                            canSpawn = false;
                         }
                     }
                 }
+
+                if (canSpawn)
+                {
+                    foreach (Vector3 offsetVec in baseOffsetList)
+                    {
+                        Vector3 offsetPos = pos + offsetVec * granularity;
+                        GameObject gameObject = GameObject.Instantiate<GameObject>(pointerObject);
+                        gameObject.transform.position = offsetPos;
+                            
+                    }
+
+                    //pos = TrySpawnAtPosition(pos);
+                }                               
             }
         }
         else
@@ -73,25 +64,4 @@ public class BuildingPlacer : MonoBehaviour {
             lastPosition = null; ;
         }
 	}
-
-    private Vector3 TrySpawnAtPosition(Vector3 pos)
-    {
-        bool shouldSpawn = true;
-        foreach (RoadMesh roadMesh in GameObject.FindObjectsOfType<RoadMesh>())
-        {
-            Vector3 distance = roadMesh.transform.position - pos;
-            distance = new Vector3(distance.x, 0.0f, distance.z);
-            if (distance.sqrMagnitude < 1.0f)
-            {
-                shouldSpawn = false;
-            }
-        }
-        if (shouldSpawn)
-        {
-            GameObject newObject = GameObject.Instantiate<GameObject>(pointerObject);
-            newObject.transform.position = pos;
-            lastPosition = pos;
-        }
-        return pos;
-    }
 }
