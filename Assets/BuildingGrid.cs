@@ -8,11 +8,12 @@ public struct GridSpawnObjectRequest
     public List<Index2> layoutList;
     public Vector3 worldPosition;
 }
+
 public class BuildingGrid : MonoBehaviour {
 
     public ProceduralMesh prodMesh;
     public float cellSize = 1.0f;
-
+    Dictionary<Index2, GameObject> spawnedObjectDictionary;
     
 	// Use this for initialization
 	void Start () {
@@ -49,6 +50,13 @@ public class BuildingGrid : MonoBehaviour {
     public bool isOnGrid(Vector3 vec)
     {
         return true;
+    }
+    public Index2 getIndexForVec(Vector3 vec)
+    {
+        Index2 returnIndex = new Index2();
+        returnIndex.X = Mathf.RoundToInt(vec.x / (cellSize * prodMesh.xSize));
+        returnIndex.Y= Mathf.RoundToInt(vec.z / (cellSize * prodMesh.xSize));
+        return returnIndex;
     }
     public bool trySpawnObject(GridSpawnObjectRequest spawnRequest, ref GameObject spawnedObject)
     {
